@@ -26,16 +26,11 @@ class VirtualGateway:
         self.port_up = port_up
         self.port_dn = port_dn
         self.server_address = server_address
-
-
         # counts number of received and transmitted packets for stats
         self.rxnb = 0
         self.txnb = 0
-
-
         # payload modifier
         self.rxmodifier = RXMetadataModification(rx_power_adjustment)
-
         self.logger = logging.getLogger(f"VGW:{self.mac[-2:]}")
 
 

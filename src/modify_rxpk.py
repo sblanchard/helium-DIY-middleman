@@ -17,7 +17,7 @@ import datetime as dt
 
 class RXMetadataModification:
     def __init__(self, rx_adjust):
-        self.min_rssi = -120
+        self.min_rssi = -130
         self.max_rssi = -90  # valid to 50 miles via FSPL filter
         self.max_snr = 1.9
         self.min_snr = -9.9
@@ -35,9 +35,9 @@ class RXMetadataModification:
         old_snr, old_rssi, old_ts = rxpk['lsnr'], rxpk['rssi'], rxpk['tmst']
         
         # Simple RSSI level adjustment
-        rxpk['rssi'] += self.rx_adjust
-    
-        rxpk['lsnr'] = round(rxpk['lsnr'] + random.randint(-15, 10) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
+        #rxpk['rssi'] += self.rx_adjust
+        rxpk['rssi'] = random.randint(-127, -96)
+        rxpk['lsnr'] = round(rxpk['lsnr'] + random.randint(-8, 8) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
         # clip after adjustments to ensure result is still valid
         rxpk['rssi'] = min(self.max_rssi, max(self.min_rssi, rxpk['rssi']))
         rxpk['lsnr'] = min(self.max_snr,  max(self.min_snr,  rxpk['lsnr']))

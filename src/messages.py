@@ -217,6 +217,9 @@ def PULL_RESP2PUSH_DATA(pull_resp, src_mac):
 
 
 def FreqToChan(freq):
+    
+    chan=10
+
     if freq==868.1:
         chan=1
     elif freq==868.3:

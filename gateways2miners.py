@@ -8,11 +8,10 @@ import time
 import socket
 import copy
 from hashlib import md5
+import random
 
 from src import messages
 from src.vgateway import VirtualGateway
-
-
 
 class GW2Miner:
     def __init__(self, port, vminer_configs_paths, keepalive_interval=10, stat_interval=30, debug=True, tx_power_adjustment=0.0, rx_power_adjustment=0.0):
@@ -143,7 +142,9 @@ class GW2Miner:
             key = self.__rxpk_key__(rxpk)
 
             is_duplicate = key in self.rxpk_cache
+
             description = f"from GW:{msg['MAC'][-8:]} [{rxpk.get('size')}B]: {key}; rssi:{rxpk['rssi']:.0f}dBm, snr:{rxpk['lsnr']:.0f}"
+           
 
             if packet_is_poc_challenge(rxpk):
                 log_level = 'info'
@@ -263,7 +264,6 @@ class GW2Miner:
 
         return msg, addr
    
-
     def send_stats(self):
         """
         Sends stat PUSH_DATA messages from all virtual gateways to corresponding miners
@@ -286,6 +286,14 @@ class GW2Miner:
 
     def adjust_tx_power(self, pk: dict):
         pk['powe'] += self.tx_power_adjustment
+        return pk
+
+    def adjust_rx_power(self, pk: dict):            
+        rxpk['rssi'] += self.rx_power_adjustment    
+        rxpk['lsnr'] = round(rxpk['lsnr'] + random.randint(-15, 10) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
+        # clip after adjustments to ensure result is still valid
+        rxpk['rssi'] = min(-90, max(-120, rxpk['rssi']))
+        rxpk['lsnr'] = min(2,  max(-9,  rxpk['lsnr']))
         return pk
 
     def __del__(self):
