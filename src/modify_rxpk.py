@@ -37,7 +37,7 @@ class RXMetadataModification:
         # Simple RSSI level adjustment
         #rxpk['rssi'] += self.rx_adjust
         rxpk['rssi'] = random.randint(-127, -96)
-        rxpk['lsnr'] = round(rxpk['lsnr'] + random.randint(-8, 8) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
+        rxpk['lsnr'] = round(rxpk['lsnr'] + random.randint(-9, 9) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
         # clip after adjustments to ensure result is still valid
         rxpk['rssi'] = min(self.max_rssi, max(self.min_rssi, rxpk['rssi']))
         rxpk['lsnr'] = min(self.max_snr,  max(self.min_snr,  rxpk['lsnr']))

@@ -138,20 +138,16 @@ class GW2Miner:
         self.vminer_logger.debug(
             f"PUSH_DATA from GW:{msg['MAC'][-8:]}")
         for rxpk in msg['data']['rxpk']:
-
             key = self.__rxpk_key__(rxpk)
-
             is_duplicate = key in self.rxpk_cache
-
-            description = f"from GW:{msg['MAC'][-8:]} [{rxpk.get('size')}B]: {key}; rssi:{rxpk['rssi']:.0f}dBm, snr:{rxpk['lsnr']:.0f}"
-           
+            description = f"from GW:{msg['MAC'][-8:]} [{rxpk.get('size')}B]: {key}; rssi:{rxpk['rssi']:.0f}dBm, snr:{rxpk['lsnr']:.0f}"           
 
             if packet_is_poc_challenge(rxpk):
                 log_level = 'info'
                 if is_duplicate:
-                    classification = 'repeat chlng.'
+                    classification = 'Repeat Challenge.'
                 else:
-                    classification = 'new    chlng.'
+                    classification = 'POC POC POC New Challenge'
             else:
                 log_level = 'debug'
                 if is_duplicate:
@@ -289,11 +285,8 @@ class GW2Miner:
         return pk
 
     def adjust_rx_power(self, pk: dict):            
-        rxpk['rssi'] += self.rx_power_adjustment    
-        rxpk['lsnr'] = round(rxpk['lsnr'] + random.randint(-15, 10) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
-        # clip after adjustments to ensure result is still valid
-        rxpk['rssi'] = min(-90, max(-120, rxpk['rssi']))
-        rxpk['lsnr'] = min(2,  max(-9,  rxpk['lsnr']))
+        rxpk['rssi'] = random.randint(-127, -96)
+        rxpk['lsnr'] = round(rxpk['lsnr'] + random.randint(-8, 8) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
         return pk
 
     def __del__(self):
@@ -301,14 +294,7 @@ class GW2Miner:
 
 
 def packet_is_poc_challenge(rxpk: dict):
-    return rxpk.get('size') >= 50 and rxpk.get('size') <= 54 
-    (rxpk.get('datr') == 'SF7BW125' 
-    or rxpk.get('datr') == 'SF8BW125'
-    or rxpk.get('datr') == 'SF9BW125'
-    or rxpk.get('datr') == 'SF10BW125'
-    or rxpk.get('datr') == 'SF11BW125' 
-    or rxpk.get('datr') == 'SF12BW125')
-
+    return rxpk.get('size') == 52
 
 def configure_logger(debug=False):
     # setup logger

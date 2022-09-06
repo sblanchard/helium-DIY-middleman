@@ -59,10 +59,8 @@ class VirtualGateway:
 
         # next iterate through each received packet to see if it is a repeat from chached
         for rx in msg['data']['rxpk']:
-
             # modify metadata as needed
             modified_rx = self.rxmodifier.modify_rxpk(rx, src_mac=msg['MAC'], dest_mac=self.mac)
-
             # add rx payload to array to be sent to miner
             new_rxpks.append(modified_rx)
 
