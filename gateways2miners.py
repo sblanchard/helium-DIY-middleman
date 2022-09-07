@@ -90,7 +90,6 @@ class GW2Miner:
         )
         return key
 
-
     def run(self):
         """
         infinite loop running code
@@ -101,9 +100,7 @@ class GW2Miner:
             if time.time() - self.last_keepalive_ts > self.keepalive_interval:
                 self.send_keepalive()
             if time.time() - self.last_stat_ts > self.stat_interval:
-                self.send_stats()
-
-            # logging.debug(f"loop time: {time.time() - start_ts:.4f}")
+                self.send_stats()          
 
             msg, addr = self.get_message(timeout=5)
 
@@ -119,9 +116,6 @@ class GW2Miner:
                 self.handle_PULL_DATA(msg, addr)
             #else:
             #    self.vgw_logger.info(f"received from {addr} {msg['_NAME_']}")
-
-
-
 
     def handle_PUSH_DATA(self, msg, addr=None):
         """
@@ -282,16 +276,10 @@ class GW2Miner:
 
     def adjust_tx_power(self, pk: dict):
         pk['powe'] += self.tx_power_adjustment
-        return pk
-
-    def adjust_rx_power(self, pk: dict):            
-        rxpk['rssi'] = random.randint(-127, -96)
-        rxpk['lsnr'] = round(rxpk['lsnr'] + random.randint(-8, 8) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
-        return pk
+        return pk 
 
     def __del__(self):
         self.sock.close()
-
 
 def packet_is_poc_challenge(rxpk: dict):
     return rxpk.get('size') == 52
@@ -313,8 +301,6 @@ def configure_logger(debug=False):
     # tell the handler to use this format
     console.setFormatter(formatter)
     logging.getLogger('').addHandler(console)
-
-
 
 def main():
     parser = argparse.ArgumentParser("forward data from multiple concentrators to multiple miners with coercing of metadata")
