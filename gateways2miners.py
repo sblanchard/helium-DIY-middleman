@@ -1,5 +1,3 @@
-#!/usr/bin/env python 
-
 import argparse
 import os
 import json
@@ -8,10 +6,11 @@ import time
 import socket
 import copy
 from hashlib import md5
-import random
 
 from src import messages
 from src.vgateway import VirtualGateway
+
+
 
 class GW2Miner:
     def __init__(self, port, vminer_configs_paths, keepalive_interval=10, stat_interval=30, debug=True, tx_power_adjustment=0.0, rx_power_adjustment=0.0):
@@ -90,6 +89,7 @@ class GW2Miner:
         )
         return key
 
+
     def run(self):
         """
         infinite loop running code
@@ -100,7 +100,9 @@ class GW2Miner:
             if time.time() - self.last_keepalive_ts > self.keepalive_interval:
                 self.send_keepalive()
             if time.time() - self.last_stat_ts > self.stat_interval:
-                self.send_stats()          
+                self.send_stats()
+
+            # logging.debug(f"loop time: {time.time() - start_ts:.4f}")
 
             msg, addr = self.get_message(timeout=5)
 
@@ -114,8 +116,6 @@ class GW2Miner:
                 self.handle_PULL_RESP(msg, addr)
             elif msg['_NAME_'] == messages.MsgPullData.NAME:
                 self.handle_PULL_DATA(msg, addr)
-            #else:
-            #    self.vgw_logger.info(f"received from {addr} {msg['_NAME_']}")
 
     def handle_PUSH_DATA(self, msg, addr=None):
         """
@@ -132,16 +132,18 @@ class GW2Miner:
         self.vminer_logger.debug(
             f"PUSH_DATA from GW:{msg['MAC'][-8:]}")
         for rxpk in msg['data']['rxpk']:
+
             key = self.__rxpk_key__(rxpk)
+
             is_duplicate = key in self.rxpk_cache
-            description = f"from GW:{msg['MAC'][-8:]} [{rxpk.get('size')}B]: {key}; rssi:{rxpk['rssi']:.0f}dBm, snr:{rxpk['lsnr']:.0f}"           
+            description = f"from GW:{msg['MAC'][-8:]} [{rxpk.get('size')}B]: {key}; rssi:{rxpk['rssi']:.0f}dBm, snr:{rxpk['lsnr']:.0f}"
 
             if packet_is_poc_challenge(rxpk):
                 log_level = 'info'
                 if is_duplicate:
-                    classification = 'Repeat Challenge.'
+                    classification = 'repeat chlng.'
                 else:
-                    classification = 'POC POC POC New Challenge'
+                    classification = 'new    chlng.'
             else:
                 log_level = 'debug'
                 if is_duplicate:
@@ -253,7 +255,7 @@ class GW2Miner:
             self.sock.sendto(ack, addr)
 
         return msg, addr
-   
+
     def send_stats(self):
         """
         Sends stat PUSH_DATA messages from all virtual gateways to corresponding miners
@@ -276,13 +278,15 @@ class GW2Miner:
 
     def adjust_tx_power(self, pk: dict):
         pk['powe'] += self.tx_power_adjustment
-        return pk 
+        return pk
 
     def __del__(self):
         self.sock.close()
 
+
 def packet_is_poc_challenge(rxpk: dict):
-    return rxpk.get('size') == 52
+    return rxpk.get('size') == 52 and rxpk.get('datr') == 'SF9BW125'
+
 
 def configure_logger(debug=False):
     # setup logger
@@ -301,6 +305,8 @@ def configure_logger(debug=False):
     # tell the handler to use this format
     console.setFormatter(formatter)
     logging.getLogger('').addHandler(console)
+
+
 
 def main():
     parser = argparse.ArgumentParser("forward data from multiple concentrators to multiple miners with coercing of metadata")
