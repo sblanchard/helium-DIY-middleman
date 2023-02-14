@@ -134,3 +134,4 @@ dmypy.json
 *.log
 middleman.service
 run.sh
+*.bak
