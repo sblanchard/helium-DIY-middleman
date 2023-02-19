@@ -1,3 +1,6 @@
+
+#!/usr/bin/env python 
+
 import argparse
 import os
 import json
@@ -5,43 +8,25 @@ import logging
 import time
 import socket
 import copy
+import random
 from hashlib import md5
 
 from src import messages
 from src.vgateway import VirtualGateway
 
 class GW2Miner:
-    def __init__(self, port, vminer_configs_paths, keepalive_interval=10, stat_interval=30, debug=True, tx_power_adjustment=0.0, rx_power_adjustment=0.0):
-        """
-        This is the constructor of the GW2Miner class. It initializes the class variables and loads the virtual gateway configurations.
-        :param port: The port number to use for the virtual miner.
-        :param vminer_configs_paths: A list of paths to the virtual miner configuration files.
-        :param keepalive_interval: The interval at which to send keepalive messages to the virtual gateway.
-        :param stat_interval: The interval at which to update statistics.
-        :param debug: A flag indicating whether to enable debug logging.
-        :param tx_power_adjustment: The adjustment to apply to the transmission power.
-        :param rx_power_adjustment: The adjustment to apply to the reception power.
-        """
-        # Initialize the logger for virtual gateways
-        self.vgw_logger = logging.getLogger('VGW')
-        # Initialize the logger for the virtual miner
-        self.vminer_logger = logging.getLogger('VMiner')
-        # Store the transmission power adjustment
-        self.tx_power_adjustment = tx_power_adjustment
-        # Store the reception power adjustment
+    def __init__(self, port, vminer_configs_paths, keepalive_interval=10, stat_interval=30, debug=True, tx_power_adjustment=0.0, rx_power_adjustment=0.0):       
+        self.vgw_logger = logging.getLogger('VGW')        
+        self.vminer_logger = logging.getLogger('VMiner')        
+        self.tx_power_adjustment = tx_power_adjustment        
         self.rx_power_adjustment = rx_power_adjustment
 
-        # Load the virtual gateways configurations
-        # ========================================
-        # Initialize dictionaries to store virtual gateways by address and by MAC address
         self.vgateways_by_addr = dict()
         self.vgateways_by_mac = dict()
-        # Loop over all the virtual miner configuration files
+
         for path in vminer_configs_paths:
-            # Open the configuration file
             with open(path, 'r') as fd:
                 config = json.load(fd)
-                # Check if the required parameters are present in the configuration file
                 if 'gateway_conf' in config:
                     config = config['gateway_conf']
                 mac = ''
@@ -54,12 +39,10 @@ class GW2Miner:
                 except socket.gaierror:
                     self.vgw_logger.error(f"invalid server_address \"{config.get('server_address')}\" in config {path}")
                     continue
-                # Generate the MAC address from the gateway ID
                 for i in range(0, len(config.get('gateway_ID')), 2):
                     mac += config.get('gateway_ID')[i:i+2] + ':'
                 mac = mac[:-1].upper()
 
-        # Create a VirtualGateway object
         vgw = VirtualGateway(
             mac=mac,
             server_address=server_ip,
@@ -72,31 +55,19 @@ class GW2Miner:
         # Store the virtual gateway in the dictionary of virtual gateways by address
         self.vgateways_by_addr[(server_ip, config.get('serv_port_down'))] = vgw
         self.vgateways_by_addr[(server_ip, config.get('serv_port_up'))] = vgw
-        # Log the addition of the virtual gateway
+
         self.vgw_logger.info(f"added vgateway for miner at {server_ip} port: {config.get('serv_port_up')}(up)/{config.get('serv_port_down')}(dn)")
 
         # Start the listening socket
-        # =========================
-        # Create a UDP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # Bind the socket to the specified port and all available IP addresses
         self.sock.bind(("0.0.0.0", port))
-        # Log the start of the listening socket
         logging.info(f"listening on port {port}")
 
-        # Setup other class variables
-        # ==========================
-        # Initialize a cache for received packets
         self.rxpk_cache = dict()
-        # Initialize a dictionary to store the listening addresses of the gateways
         self.gw_listening_addrs = dict() # keys = MAC, values = (ip, port) tuple
-        # Store the keepalive interval
         self.keepalive_interval = keepalive_interval
-        # Store the statistics interval
         self.stat_interval = stat_interval
-        # Initialize the timestamp of the last statistics update
         self.last_stat_ts = 0
-        # Initialize the timestamp of the last keepalive message
         self.last_keepalive_ts = 0
 
 
@@ -159,12 +130,10 @@ class GW2Miner:
                 self.handle_PULL_RESP(msg, addr)
             elif msg['_NAME_'] == messages.MsgPullData.NAME:
                 self.handle_PULL_DATA(msg, addr)
-            elif msg['_NAME_'] == messages.MsgTxAck.NAME:
-                self.handle_TX_ACK(msg, addr)
-            elif msg['_NAME_'] == messages.MsgPushAck.NAME:
-                self.handle_PUSH_ACK(msg, addr)
-            elif msg['_NAME_'] == messages.MsgPullAck.NAME:
-                self.handle_PULL_ACK(msg, addr)
+            # elif msg['_NAME_'] == messages.MsgPushAck.NAME:
+            #     self.handle_PUSH_ACK(msg, addr)
+            # elif msg['_NAME_'] == messages.MsgPullAck.NAME:
+            #     self.handle_PULL_ACK(msg, addr)
 
     def handle_PUSH_DATA(self, msg, addr=None):
         """
@@ -222,25 +191,19 @@ class GW2Miner:
         if not new_rxpks:
             # Return if there are no new rxpks
             return
-
-        # Update the msg data with new rxpks
+        
         msg['data']['rxpk'] = new_rxpks
-
-        # Loop through all virtual gateways (vgw) by mac addresses
+        # send rxpks from each gateway to miners
         for vgw in self.vgateways_by_mac.values():
-            # Check if the current msg is generated from the transmission of this vgw
+            # ignore if this is a generated PUSH from this gateways transmission
             if msg.get('txMAC') == vgw.mac:
-                # Log a debug message and ignore this vgw
                 self.vgw_logger.debug(f"ignoring rxpk for vGW {vgw.mac[-8:]}. Its generated from PULL_RESP from this vGW")
                 continue
 
-            # Get the rxpks data and address for this vgw
             data, addr = vgw.get_rxpks(copy.deepcopy(msg))
-            # Check if address is not None
             if addr is None:
-                # Continue to the next iteration if address is None
+                self.vgw_logger.debug("none addr")
                 continue
-            # Send the data to the specified address using socket
             self.sock.sendto(data, addr)
 
     # Handle the PULL_RESP message
@@ -279,6 +242,43 @@ class GW2Miner:
             # Log a message indicating that the PULL_RESP has been forwarded
             self.vgw_logger.info(f"forwarding PULL_RESP from {addr} to gateway {vgw.mac[-8:]}, (freq:{round(txpk['freq'], 2)}, sf:{txpk['datr']}, codr:{txpk['codr']}, size:{txpk['size']})")
 
+        # #handle TX_ACK
+        self.vgw_logger.debug(f"TX_ACK DEBUG:")
+        # Extract the token from the message
+        token = msg.get('token') or random.randint(0, 2**16 - 1)
+        self.vgw_logger.debug(f"token: {token}")
+        # Create a default response
+        txpk_ack = {"txpk_ack": {"error": "NONE"}}
+        self.vgw_logger.debug(f"txpk_ack: {txpk_ack}")
+        # TODO: Handle the downlink request and update the txpk_ack response accordingly
+        # Append the txpk_ack to the TX_ACK message
+        tx_ack = json.dumps(txpk_ack.decode())
+        self.vgw_logger.debug(f"tx_ack: {tx_ack}")
+        # Send the TX_ACK message to the destination address
+        mac_address = vgw.mac or addr
+        self.vgw_logger.debug(f"mac_address: {mac_address}")
+        gw_address = dest_addr or addr
+        self.vgw_logger.debug(f"gw_address: {gw_address}")
+        payload = {
+            'ver': 2,
+            'token': token,
+            'identifier': messages.MsgTxAck.IDENT,
+            '_NAME_': messages.MsgTxAck.NAME,
+            '_UNIX_TS_': time.time(),
+            'MAC': mac_address,
+            'data': tx_ack
+            }
+        msg_obj = messages.MsgTxAck()
+        rawmsg = msg_obj.encode(payload)
+        self.vgw_logger.debug(f"Encoded Message: {rawmsg}")
+        self.vgw_logger.debug(f"Identifier: {messages.MsgTxAck.IDENT}")
+        self.vgw_logger.debug(f"Name: {messages.MsgTxAck.NAME}")
+        self.vgw_logger.debug(f"Time: {time.time()}")
+        self.vgw_logger.debug(f"MAC Address: {mac_address}")
+        self.vgw_logger.debug(f"Data: {txpk_ack}")
+        self.vgw_logger.debug(f"gw_address: {gw_address}")
+        self.sock.sendto(rawmsg, gw_address)
+
         # Create a fake PUSH_DATA message
         fake_push = messages.PULL_RESP2PUSH_DATA(msg, src_mac=vgw.mac)
         # Log a message indicating that a fake rxpk has been created
@@ -286,63 +286,38 @@ class GW2Miner:
         # Handle the fake PUSH_DATA message
         self.handle_PUSH_DATA(msg=fake_push, addr=None)
 
-    # Handle TX_ACK message
-    def handle_TX_ACK(self, msg, addr):
-        #print(messages.MsgTxAck.decode(self.get_message))
-        # Extract the token and MAC address from the message
-        token = msg[1:3]
-        mac_address = msg.get('MAC', addr)
-        rawmsg = messages.encode_message(msg)
-
-        # Extract the optional JSON object from the message
-        json_data = None
-        if len(msg) > 12:
-            json_data = msg[12:]
-
-        # Check the error field in the JSON object to determine if the downlink request was accepted or rejected
-        if json_data:
-            json_obj = json.loads(json_data)
-            error = json_obj.get('txpk_ack', {}).get('error', 'NONE')
-            if error == 'NONE':
-                # Log a debug message indicating that the downlink request was accepted
-                self.vgw_logger.debug(f"Downlink request accepted by gateway at {mac_address}")
-                self.sock.sendto(rawmsg, addr)
-                self.vgw_logger.debug(f"Decoded Message: {msg}")
-                self.vgw_logger.debug(f"Encoded Message: {rawmsg}")
-            else:
-                # Log a debug message indicating that the downlink request was rejected
-                self.vgw_logger.debug(f"Downlink request rejected by gateway at {mac_address}: {error}")
-                self.sock.sendto(rawmsg, addr)
-                self.vgw_logger.debug(f"Decoded Message: {msg}")
-                self.vgw_logger.debug(f"Encoded Message: {rawmsg}")
-        else:
-            # Log a debug message indicating that the downlink request was accepted
-            self.vgw_logger.debug(f"Downlink request accepted by gateway at {mac_address}")
-            self.sock.sendto(rawmsg, addr)
-            self.vgw_logger.debug(f"Decoded Message: {msg}")
-            self.vgw_logger.debug(f"Encoded Message: {rawmsg}")
+    def handle_PULL_DATA(self, msg, addr=None):
+        if msg['MAC'] not in self.gw_listening_addrs:
+            self.vminer_logger.info(f"discovered gateway mac:{msg['MAC'][-8:]} at {addr}. {len(self.gw_listening_addrs) + 1} total gateways")
+        self.gw_listening_addrs[msg['MAC']] = addr
 
     # Handle PULL_ACK message
-    def handle_PULL_ACK(self, msg, addr):
-        rawmsg = messages.encode_message(msg)
-        self.sock.sendto(rawmsg, addr)
-        self.vgw_logger.debug(f"Decoded Message: {msg}")
-        self.vgw_logger.debug(f"Encoded Message: {rawmsg}")
-        # Extract the mac address from the message
-        mac_address = msg.get('MAC', addr)
+    #def handle_PULL_ACK(self, msg, addr):
+        # Log the decoded message
+        #self.vgw_logger.debug(f"Decoded Message: {msg}")
+        # Encode the message and send it back to all the virtual gateways
+        #rawmsg = messages.encode_message(msg)
+        # for (server_ip, port_dn), vgw in self.vgateways_by_addr.items():
+        #     self.sock.sendto(rawmsg, (server_ip, port_dn))
+        #     self.vgw_logger.debug(f" Raw Message: {rawmsg}, Server IP: ({server_ip}, Down Port: {port_dn})")
+        #self.sock.sendto(rawmsg, addr)
+        #self.vgw_logger.debug(f" Raw Message: {rawmsg}, Addr: {addr}")
         # Log a debug message indicating that a PULL_ACK has been received
-        self.vgw_logger.debug(f"PULL_ACK received from gateway at {mac_address}")
+        #self.vgw_logger.debug(f"PULL_ACK received from {msg.get('MAC', addr)}")
 
     # Handle PUSH_ACK message
-    def handle_PUSH_ACK(self, msg, addr):
-        rawmsg = messages.encode_message(msg)
-        self.sock.sendto(rawmsg, addr)
-        self.vgw_logger.debug(f"Decoded Message: {msg}")
-        self.vgw_logger.debug(f"Encoded Message: {rawmsg}")
-        # Get the mac address from the message or the address
-        mac_address = msg.get('MAC', addr)
+    #def handle_PUSH_ACK(self, msg, addr):
+        # Log the decoded message
+        #self.vgw_logger.debug(f"Decoded Message: {msg}")
+        # Encode the message and send it back to all the virtual gateways
+        #rawmsg = messages.encode_message(msg)
+        # for (server_ip, port_dn), vgw in self.vgateways_by_addr.items():
+        #     self.sock.sendto(rawmsg, (server_ip, port_dn))
+        #     self.vgw_logger.debug(f" Raw Message: {rawmsg}, Server IP: ({server_ip}, Down Port: {port_dn})")
+        #self.sock.sendto(rawmsg, addr)
+        #self.vgw_logger.debug(f" Raw Message: {rawmsg}, Addr: {addr}")
         # Log a debug message indicating that a PUSH_ACK has been received
-        self.vgw_logger.debug(f"PUSH_ACK received from packet forwarder at {mac_address}")
+        #self.vgw_logger.debug(f"PUSH_ACK received from at {msg.get('MAC', addr)}")
 
     # Get the message from the socket
     def get_message(self, timeout=None):
@@ -464,15 +439,11 @@ def main():
     parser.add_argument('-t', '--tx-adjust', help='adjust transmit power by some constant (in dB).', type=float, metavar='<adjustment-db>', default=0.0)
     parser.add_argument('-r', '--rx-adjust', help='adjust reported receive power by some constant (in dB).', type=float, metavar='<adjustment-db>', default=0.0)
 
-    # Parse the arguments
     args = parser.parse_args()
 
-    # Configure the logger
     configure_logger(args.debug)
 
-    # Log information messages
     logging.info(f"info log messages are enabled")
-    # Log debug messages
     logging.debug(f"debug log messages are enabled")
     logging.debug(f"startup arguments: {args}")
 
@@ -483,14 +454,11 @@ def main():
             config_paths.append(os.path.join(args.configs, f))
 
     # Create a GW2Miner instance
-    gw2miner = GW2Miner(args.port, config_paths, args.keepalive, args.stat,
-        args.debug, args.tx_adjust, args.rx_adjust)
+    gw2miner = GW2Miner(args.port, config_paths, args.keepalive, args.stat, args.debug, args.tx_adjust, args.rx_adjust)
     logging.info(f"starting Gateway2Miner")
-    try:
-        # Start the Gateway2Miner instance
+    try:        
         gw2miner.run()
-    except FileNotFoundError as e:
-        # Log a fatal error message
+    except FileNotFoundError as e:        
         logging.fatal("Gateway2Miner returned, packets will no longer be forwarded")
         raise e
 
