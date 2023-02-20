@@ -8,16 +8,16 @@ class RXMetadataModification:
     def __init__(self, rx_adjust):
         self.min_rssi = -120
         self.max_rssi = -90  # valid to 50 miles via FSPL filter
-        self.max_snr = 1.9
-        self.min_snr = -9.9
+        self.max_snr = 3.9
+        self.min_snr = -11.9
         self.tmst_offset = 0
         self.rx_adjust = rx_adjust
         self.logger = logging.getLogger('RXMeta')
 
     def modify_rxpk(self, rxpk, src_mac=None, dest_mac=None):
         old_snr, old_rssi, old_ts = rxpk['lsnr'], rxpk['rssi'], rxpk['tmst']
-        rxpk['rssi'] += self.rx_adjust
-        rxpk['lsnr'] = round(rxpk['lsnr'] + random.randint(-15, 10) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
+        rxpk['rssi'] += self.rx_adjust + random.randint(-5, 5)
+        rxpk['lsnr'] = round(random.randint(-15, 10) * 0.1, 1)  # randomize snr +/- 1dB in 0.1dB increments
 
         rxpk['rssi'] = min(self.max_rssi, max(self.min_rssi, rxpk['rssi']))
         rxpk['lsnr'] = min(self.max_snr,  max(self.min_snr,  rxpk['lsnr']))
