@@ -62,21 +62,21 @@ class GW2Miner:
                     mac += config.get('gateway_ID')[i:i+2] + ':'
                 mac = mac[:-1].upper()
 
-        # Create a VirtualGateway object
-        vgw = VirtualGateway(
-            mac=mac,
-            server_address=server_ip,
-            port_dn=config.get('serv_port_down'),
-            port_up=config.get('serv_port_up'),
-            rx_power_adjustment=rx_power_adjustment
-        )
-        # Store the virtual gateway in the dictionary of virtual gateways by MAC address
-        self.vgateways_by_mac[mac] = vgw
-        # Store the virtual gateway in the dictionary of virtual gateways by address
-        self.vgateways_by_addr[(server_ip, config.get('serv_port_down'))] = vgw
-        self.vgateways_by_addr[(server_ip, config.get('serv_port_up'))] = vgw
-        # Log the addition of the virtual gateway
-        self.vgw_logger.info(f"added vgateway for miner at {server_ip} port: {config.get('serv_port_up')}(up)/{config.get('serv_port_down')}(dn)")
+                # Create a VirtualGateway object
+                vgw = VirtualGateway(
+                    mac=mac,
+                    server_address=server_ip,
+                    port_dn=config.get('serv_port_down'),
+                    port_up=config.get('serv_port_up'),
+                    rx_power_adjustment=rx_power_adjustment
+                )
+                # Store the virtual gateway in the dictionary of virtual gateways by MAC address
+                self.vgateways_by_mac[mac] = vgw
+                # Store the virtual gateway in the dictionary of virtual gateways by address
+                self.vgateways_by_addr[(server_ip, config.get('serv_port_down'))] = vgw
+                self.vgateways_by_addr[(server_ip, config.get('serv_port_up'))] = vgw
+                # Log the addition of the virtual gateway
+                self.vgw_logger.info(f"added vgateway for miner at {server_ip} port: {config.get('serv_port_up')}(up)/{config.get('serv_port_down')}(dn)")
 
         # Start the listening socket
         # =========================
@@ -504,8 +504,7 @@ def main():
             config_paths.append(os.path.join(args.configs, f))
 
     # Create a GW2Miner instance
-    gw2miner = GW2Miner(args.port, config_paths, args.keepalive, args.stat,
-        args.debug, args.tx_adjust, args.rx_adjust)
+    gw2miner = GW2Miner(args.port, config_paths, args.keepalive, args.stat, args.debug, args.tx_adjust, args.rx_adjust)
     logging.info(f"starting Gateway2Miner")
     try:
         # Start the Gateway2Miner instance
